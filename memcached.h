@@ -273,6 +273,12 @@ enum delta_result_type {
     OK, NON_NUMERIC, EOM, DELTA_ITEM_NOT_FOUND, DELTA_ITEM_CAS_MISMATCH
 };
 
+enum arith_type {
+    ARITH_INCR,
+    ARITH_DECR,
+    ARITH_MUL,
+};
+
 /** Time relative to server start. Smaller than time_t on 64-bit systems. */
 // TODO: Move to sub-header. needed in logger.h
 //typedef unsigned int rel_time_t;
@@ -286,6 +292,7 @@ enum delta_result_type {
     X(get_hits) \
     X(touch_hits) \
     X(delete_hits) \
+    X(mul_hits) \
     X(cas_hits) \
     X(cas_badval) \
     X(incr_hits) \
@@ -306,6 +313,7 @@ struct slab_stats {
     X(touch_cmds) \
     X(touch_misses) \
     X(delete_misses) \
+    X(mul_misses) \
     X(incr_misses) \
     X(decr_misses) \
     X(cas_misses) \
@@ -901,7 +909,7 @@ extern void *ext_storage;
  */
 void do_accept_new_conns(const bool do_accept);
 enum delta_result_type do_add_delta(conn *c, const char *key,
-                                    const size_t nkey, const bool incr,
+                                    const size_t nkey, enum arith_type arith_type,
                                     const int64_t delta, char *buf,
                                     uint64_t *cas, const uint32_t hv,
                                     item **it_ret);
@@ -948,7 +956,7 @@ void sidethread_conn_close(conn *c);
 
 /* Lock wrappers for cache functions that are called from main loop. */
 enum delta_result_type add_delta(conn *c, const char *key,
-                                 const size_t nkey, bool incr,
+                                 const size_t nkey, const enum arith_type arith_type,
                                  const int64_t delta, char *buf,
                                  uint64_t *cas);
 void accept_new_conns(const bool do_accept);

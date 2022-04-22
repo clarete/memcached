@@ -264,6 +264,7 @@ static void complete_incr_bin(conn *c, char *extbuf) {
     /* Weird magic in add_delta forces me to pad here */
     char tmpbuf[INCR_MAX_STORAGE_LEN];
     uint64_t cas = 0;
+    enum arith_type arith_type = ARITH_INCR;
 
     assert(c != NULL);
     protocol_binary_response_incr* rsp = (protocol_binary_response_incr*)c->resp->wbuf;
@@ -294,7 +295,19 @@ static void complete_incr_bin(conn *c, char *extbuf) {
     if (c->binary_header.request.cas != 0) {
         cas = c->binary_header.request.cas;
     }
-    switch(add_delta(c, key, nkey, c->cmd == PROTOCOL_BINARY_CMD_INCREMENT,
+
+    switch (c->cmd) {
+    case PROTOCOL_BINARY_CMD_INCREMENT:
+        arith_type = ARITH_INCR;
+        break;
+    case PROTOCOL_BINARY_CMD_DECREMENT:
+        arith_type = ARITH_DECR;
+        break;
+    case PROTOCOL_BINARY_CMD_MULTIPLY:
+        arith_type = ARITH_MUL;
+        break;
+    }
+    switch(add_delta(c, key, nkey, arith_type,
                      req->message.body.delta, tmpbuf,
                      &cas)) {
     case OK:
@@ -1009,6 +1022,7 @@ static void dispatch_bin_command(conn *c, char *extbuf) {
             break;
         case PROTOCOL_BINARY_CMD_INCREMENT:
         case PROTOCOL_BINARY_CMD_DECREMENT:
+        case PROTOCOL_BINARY_CMD_MULTIPLY:
             if (keylen > 0 && extlen == 20 && bodylen == (keylen + extlen)) {
                 complete_incr_bin(c, extbuf);
             } else {

@@ -1819,6 +1819,8 @@ void server_stats(ADD_STAT add_stats, conn *c) {
         APPEND_STAT("badcrc_from_extstore", "%llu", (unsigned long long)thread_stats.badcrc_from_extstore);
     }
 #endif
+    APPEND_STAT("mul_misses", "%llu", (unsigned long long)thread_stats.mul_misses);
+    APPEND_STAT("mul_hits", "%llu", (unsigned long long)slab_stats.mul_hits);
     APPEND_STAT("delete_misses", "%llu", (unsigned long long)thread_stats.delete_misses);
     APPEND_STAT("delete_hits", "%llu", (unsigned long long)slab_stats.delete_hits);
     APPEND_STAT("incr_misses", "%llu", (unsigned long long)thread_stats.incr_misses);
@@ -2219,7 +2221,7 @@ item* limited_get_locked(char *key, size_t nkey, conn *c, bool do_update, uint32
  * returns a response string to send back to the client.
  */
 enum delta_result_type do_add_delta(conn *c, const char *key, const size_t nkey,
-                                    const bool incr, const int64_t delta,
+                                    enum arith_type arith_type, const int64_t delta,
                                     char *buf, uint64_t *cas,
                                     const uint32_t hv,
                                     item **it_ret) {
@@ -2256,23 +2258,37 @@ enum delta_result_type do_add_delta(conn *c, const char *key, const size_t nkey,
         return NON_NUMERIC;
     }
 
-    if (incr) {
+    switch (arith_type) {
+    case ARITH_INCR:
         value += delta;
         MEMCACHED_COMMAND_INCR(c->sfd, ITEM_key(it), it->nkey, value);
-    } else {
+        break;
+    case ARITH_DECR:
         if(delta > value) {
             value = 0;
         } else {
             value -= delta;
         }
         MEMCACHED_COMMAND_DECR(c->sfd, ITEM_key(it), it->nkey, value);
+        break;
+    case ARITH_MUL:
+        printf ("AVACALHADO DA PORRA: value=%ld, delta=%ld\n", value, delta);
+        value *= delta;
+        MEMCACHED_COMMAND_INCR(c->sfd, ITEM_key(it), it->nkey, value);
+        break;
     }
 
     pthread_mutex_lock(&c->thread->stats.mutex);
-    if (incr) {
+    switch (arith_type) {
+    case ARITH_INCR:
         c->thread->stats.slab_stats[ITEM_clsid(it)].incr_hits++;
-    } else {
+        break;
+    case ARITH_DECR:
         c->thread->stats.slab_stats[ITEM_clsid(it)].decr_hits++;
+        break;
+    case ARITH_MUL:
+        c->thread->stats.slab_stats[ITEM_clsid(it)].mul_hits++;
+        break;
     }
     pthread_mutex_unlock(&c->thread->stats.mutex);
 

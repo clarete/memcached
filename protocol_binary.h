@@ -115,6 +115,8 @@ extern "C"
         PROTOCOL_BINARY_CMD_SASL_AUTH = 0x21,
         PROTOCOL_BINARY_CMD_SASL_STEP = 0x22,
 
+        PROTOCOL_BINARY_CMD_MULTIPLY = 0x25,
+
         /* These commands are used for range operations and exist within
          * this header for use in other projects.  Range operations are
          * not expected to be implemented in the memcached server itself.
